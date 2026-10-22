@@ -170,14 +170,14 @@ a <!--
       // remainder on '\n', and retreat BlockParser by that count. For N
       // consecutive definitions, line k had its content read O(k) times.
       const count = 100;
-      final lines = [
-        for (var i = 1; i <= count; i++)
-          _CountingLine('[#$i]: https://example.com/pull/$i'),
-        _CountingLine(''),
-        _CountingLine('See [#1] and [#$count].'),
-      ];
-
-      final html = renderToHtml(Document().parseLineList(lines));
+      final source = [
+        for (var i = 1; i <= count; i++) '[#$i]: https://example.com/pull/$i',
+        '',
+        'See [#1] and [#$count].',
+      ].join('\n');
+      final context = ParseContext(Document(), source);
+      final lines = context.source.splitLines().map(_CountingLine.new).toList();
+      final html = renderToHtml(context.parseBlocks(lines));
       expect(
         html,
         '<p>See <a href="https://example.com/pull/1">#1</a> and '
@@ -237,11 +237,11 @@ a <!--
 class _CountingLine extends Line {
   int reads = 0;
 
-  _CountingLine(super.content);
+  _CountingLine(super.source);
 
   @override
-  String get content {
+  SourceText get source {
     reads++;
-    return super.content;
+    return super.source;
   }
 }

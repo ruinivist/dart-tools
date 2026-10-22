@@ -5,6 +5,7 @@
 import '../ast.dart';
 import '../block_parser.dart';
 import '../patterns.dart';
+import '../source_text.dart';
 import 'block_syntax.dart';
 
 /// Parses atx-style headers: `## Header ##`.
@@ -24,20 +25,17 @@ class HeaderSyntax extends BlockSyntax {
     final openMarkerStart = matchedText.indexOf(openMarker);
     final openMarkerEnd = openMarkerStart + level;
 
-    String? content;
+    SourceText? content;
     if (closeMarker == null) {
-      content = parser.current.content.substring(openMarkerEnd);
+      content = parser.current.source.slice(openMarkerEnd);
     } else {
       final closeMarkerStart = matchedText.lastIndexOf(closeMarker);
-      content = parser.current.content.substring(
-        openMarkerEnd,
-        closeMarkerStart,
-      );
+      content = parser.current.source.slice(openMarkerEnd, closeMarkerStart);
     }
     content = content.trim();
 
     // https://spec.commonmark.org/0.30/#example-79
-    if (closeMarker == null && RegExp(r'^#+$').hasMatch(content)) {
+    if (closeMarker == null && RegExp(r'^#+$').hasMatch(content.text)) {
       content = null;
     }
 

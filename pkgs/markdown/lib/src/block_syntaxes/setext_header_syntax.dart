@@ -4,6 +4,7 @@
 
 import '../ast.dart';
 import '../block_parser.dart';
+import '../line.dart';
 import '../patterns.dart';
 import 'block_syntax.dart';
 import 'paragraph_syntax.dart';
@@ -36,7 +37,7 @@ class SetextHeaderSyntax extends BlockSyntax {
 
     final marker = parser.current.content.trim();
     final level = (marker[0] == '=') ? '1' : '2';
-    final content = lines.map((e) => e.content).join('\n').trimRight();
+    final content = Line.join(lines).trimRight();
 
     parser.advance();
     return Element('h$level', [UnparsedContent(content)]);

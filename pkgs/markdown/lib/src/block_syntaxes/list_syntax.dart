@@ -7,6 +7,7 @@ import '../block_parser.dart';
 import '../charcode.dart';
 import '../line.dart';
 import '../patterns.dart';
+import '../source_text.dart';
 import '../text_parser.dart';
 import '../util.dart';
 import 'block_syntax.dart';
@@ -89,21 +90,19 @@ abstract class ListSyntax extends BlockSyntax {
       }
     }
 
-    String parseTaskListItem(String text) {
+    SourceText parseTaskListItem(SourceText text) {
       final pattern = RegExp(r'^ {0,3}\[([ xX])\][ \t]');
-
-      if (taskListParserEnabled && pattern.hasMatch(text)) {
-        return text.replaceFirstMapped(pattern, (match) {
-          taskListItemState = match[1] == ' '
-              ? TaskListItemState.unchecked
-              : TaskListItemState.checked;
-
-          return '';
-        });
-      } else {
-        taskListItemState = null;
-        return text;
+      final match = taskListParserEnabled
+          ? pattern.firstMatch(text.text)
+          : null;
+      if (match != null) {
+        taskListItemState = match[1] == ' '
+            ? TaskListItemState.unchecked
+            : TaskListItemState.checked;
+        return text.slice(match.end);
       }
+      taskListItemState = null;
+      return text;
     }
 
     late Match? possibleMatch;
@@ -140,11 +139,15 @@ abstract class ListSyntax extends BlockSyntax {
 
         final indentedLine = parser.current.content.dedent(indent);
 
+        final indentedSource = parser.current.source.slice(
+          parser.current.content.length - indentedLine.text.length,
+        );
         childLines.add(
-          Line(
+          Line.withSource(
             blankLines == null
-                ? indentedLine.text
-                : parseTaskListItem(indentedLine.text),
+                ? indentedSource
+                : parseTaskListItem(indentedSource),
+            parser.current,
             tabRemaining: indentedLine.tabRemaining,
           ),
         );
@@ -217,14 +220,20 @@ abstract class ListSyntax extends BlockSyntax {
 
         taskListItemState = null;
         var content = contentBlockStart != null && !isBlank
-            ? parseTaskListItem(textParser.substring(contentBlockStart))
-            : '';
+            ? parseTaskListItem(parser.current.source.slice(contentBlockStart))
+            : parser.current.source.slice(parser.current.content.length);
 
-        if (content.isEmpty && containsTab) {
-          content = content.prependSpace(2);
+        if (content.text.isEmpty && containsTab) {
+          content = content.synthetic('  ');
         }
 
-        childLines.add(Line(content, tabRemaining: containsTab ? 2 : null));
+        childLines.add(
+          Line.withSource(
+            content,
+            parser.current,
+            tabRemaining: containsTab ? 2 : null,
+          ),
+        );
       } else if (BlockSyntax.isAtBlockEnd(parser)) {
         // Done with the list.
         break;
@@ -262,7 +271,7 @@ abstract class ListSyntax extends BlockSyntax {
         }
       }
 
-      final itemParser = BlockParser(item.lines, parser.document);
+      final itemParser = BlockParser(item.lines, parser.context);
       final children = itemParser.parseLines(parentSyntax: this);
       final itemElement = checkboxToInsert == null
           ? Element('li', children)

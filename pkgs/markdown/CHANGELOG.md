@@ -1,5 +1,14 @@
 ## 7.4.1-wip
 
+* Always preserve raw destination locations for Markdown links, images,
+  references, and autolinks through `Element.destinationRange` and the exported
+  immutable `SourceRange` type.
+* **Breaking:** Make `Document` reusable configuration with fresh state per
+  parse. Remove its line-list parsing methods. Low-level parsers now receive
+  `ParseContext` and mapped `SourceText`; deferred inline content and link
+  creation hooks require source metadata. See
+  [Fork Makrdown.md](<Fork Makrdown.md>) for usage and migration notes.
+
 * Skip the regular expression in `EmojiSyntax`, `AutolinkSyntax`,
   `CodeSyntax`, and `ColorSwatchSyntax` when the character at the current
   position cannot start a match. This makes inline parsing faster, mostly on

@@ -4,6 +4,7 @@
 
 import '../ast.dart';
 import '../charcode.dart';
+import '../source_range.dart';
 import '../util.dart';
 import 'link_syntax.dart';
 
@@ -16,10 +17,11 @@ class ImageSyntax extends LinkSyntax {
   @override
   Element createNode(
     String destination,
-    String? title, {
+    String? title,
+    SourceRange destinationRange, {
     required List<Node> Function() getChildren,
   }) {
-    final element = Element.empty('img');
+    final element = Element.empty('img')..destinationRange = destinationRange;
     final children = getChildren();
     element.attributes['src'] = normalizeLinkDestination(
       escapePunctuation(destination),

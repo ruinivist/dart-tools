@@ -7,6 +7,7 @@ import '../block_parser.dart';
 import '../charcode.dart' show $space;
 import '../line.dart';
 import '../patterns.dart';
+import '../source_text.dart';
 import '../util.dart';
 import 'block_syntax.dart';
 
@@ -32,7 +33,7 @@ class FencedCodeBlockSyntax extends BlockSyntax {
       openingFence.indent,
     ).map((e) => e.content).join('\n');
 
-    if (parser.document.encodeHtml) {
+    if (parser.context.document.encodeHtml) {
       text = escapeHtml(text, escapeApos: false);
     }
     if (text.isNotEmpty) {
@@ -45,7 +46,7 @@ class FencedCodeBlockSyntax extends BlockSyntax {
     if (languageString != null) {
       final processedLanguage = _processAttribute(
         languageString,
-        encodeHtml: parser.document.encodeHtml,
+        encodeHtml: parser.context.document.encodeHtml,
       );
       code.attributes['class'] = 'language-$processedLanguage';
     }
@@ -54,7 +55,7 @@ class FencedCodeBlockSyntax extends BlockSyntax {
     if (metadataString != null) {
       final processedMetadata = _processAttribute(
         metadataString,
-        encodeHtml: parser.document.encodeHtml,
+        encodeHtml: parser.context.document.encodeHtml,
       );
       pre.attributes['data-metadata'] = processedMetadata;
     }
@@ -91,7 +92,10 @@ class FencedCodeBlockSyntax extends BlockSyntax {
           !closingFence.marker.startsWith(openingMarker) ||
           closingFence.hasInfo) {
         childLines.add(
-          Line(_removeLeadingSpaces(parser.current.content, upTo: indent)),
+          Line.withSource(
+            _removeLeadingSpaces(parser.current.source, upTo: indent),
+            parser.current,
+          ),
         );
         parser.advance();
       } else {
@@ -111,8 +115,12 @@ class FencedCodeBlockSyntax extends BlockSyntax {
     return childLines;
   }
 
-  /// Removes the leading spaces (` `) from [content] up the given [upTo] count.
-  static String _removeLeadingSpaces(String content, {required int upTo}) {
+  /// Removes the leading spaces (` `) from [source] up the given [upTo] count.
+  static SourceText _removeLeadingSpaces(
+    SourceText source, {
+    required int upTo,
+  }) {
+    final content = source.text;
     var leadingSpacesCount = 0;
 
     // Find the index of the first non-space character
@@ -126,7 +134,7 @@ class FencedCodeBlockSyntax extends BlockSyntax {
       }
       leadingSpacesCount += 1;
     }
-    return content.substring(leadingSpacesCount);
+    return source.slice(leadingSpacesCount);
   }
 }
 

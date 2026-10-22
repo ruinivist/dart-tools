@@ -4,7 +4,6 @@
 
 import 'ast.dart';
 import 'charcode.dart';
-import 'document.dart';
 import 'inline_syntaxes/autolink_syntax.dart';
 import 'inline_syntaxes/code_syntax.dart';
 import 'inline_syntaxes/decode_html_syntax.dart';
@@ -19,6 +18,8 @@ import 'inline_syntaxes/line_break_syntax.dart';
 import 'inline_syntaxes/link_syntax.dart';
 import 'inline_syntaxes/soft_line_break_syntax.dart';
 import 'inline_syntaxes/text_syntax.dart';
+import 'parse_context.dart';
+import 'source_text.dart';
 
 /// Maintains the internal state needed to parse inline span elements in
 /// Markdown.
@@ -38,10 +39,12 @@ class InlineParser {
   ]);
 
   /// The string of Markdown being parsed.
-  final String source;
+  final SourceText sourceText;
+
+  String get source => sourceText.text;
 
   /// The Markdown document this parser is parsing.
-  final Document document;
+  final ParseContext context;
 
   final syntaxes = <InlineSyntax>[];
 
@@ -58,9 +61,10 @@ class InlineParser {
   /// The tree of parsed HTML nodes.
   final _tree = <Node>[];
 
-  InlineParser(this.source, this.document) {
+  InlineParser(this.sourceText, this.context) {
+    context.source.checkSource(sourceText);
     // User specified syntaxes are the first syntaxes to be evaluated.
-    syntaxes.addAll(document.inlineSyntaxes);
+    syntaxes.addAll(context.document.inlineSyntaxes);
 
     // This first RegExp matches plain text to accelerate parsing. It's written
     // so that it does not match any prefix of any following syntaxes. Most
@@ -74,20 +78,20 @@ class InlineParser {
     // of the line, then backtracks one character at a time, and the parser
     // retries from the next position, giving quadratic behavior on long
     // unbroken runs. Allowing the run to end at `$` makes it match in one step.
-    if (document.hasCustomInlineSyntaxes) {
+    if (context.document.hasCustomInlineSyntaxes) {
       // We should be less aggressive in blowing past "words".
       syntaxes.add(TextSyntax(r'[A-Za-z0-9]+(?=\s|$)'));
     } else {
       syntaxes.add(TextSyntax(r'[ \tA-Za-z0-9]*[A-Za-z0-9](?=\s|$)'));
     }
 
-    if (document.withDefaultInlineSyntaxes) {
+    if (context.document.withDefaultInlineSyntaxes) {
       // Custom link resolvers go after the generic text syntax.
       syntaxes.addAll([
         EscapeSyntax(),
         DecodeHtmlSyntax(),
-        LinkSyntax(linkBuilder: document.linkBuilder),
-        ImageSyntax(linkBuilder: document.imageLinkBuilder),
+        LinkSyntax(linkBuilder: context.document.linkBuilder),
+        ImageSyntax(linkBuilder: context.document.imageLinkBuilder),
       ]);
 
       syntaxes.addAll(_defaultSyntaxes);
@@ -370,5 +374,5 @@ class InlineParser {
     start = pos;
   }
 
-  bool get encodeHtml => document.encodeHtml;
+  bool get encodeHtml => context.document.encodeHtml;
 }

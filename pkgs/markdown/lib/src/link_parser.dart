@@ -5,53 +5,108 @@
 import 'block_parser.dart';
 import 'block_syntaxes/block_syntax.dart';
 import 'charcode.dart';
+import 'document.dart';
+import 'source_range.dart';
+import 'source_text.dart';
 import 'util.dart';
 
 class LinkParser {
   final BlockParser _blockParser;
 
-  /// The source text accumulated from consumed lines so far.
-  String _source;
+  final _sourceLines = <SourceText>[];
+  final _lineStarts = <int>[];
+  int _length = 0;
 
-  /// The current read position in [_source].
+  /// The current read position in the consumed lines.
   int _pos = 0;
 
   /// How many lines have been consumed from [_blockParser].
   int _linesConsumed = 1;
 
-  /// If there is a valid link formed.
-  bool get valid => _valid;
-  bool _valid = false;
-
   /// Link label.
-  String? get label => _label;
-  String? _label;
+  late String _label;
 
   /// Link destination.
-  String? get destination => _destination;
-  String? _destination;
+  late String _destination;
+  late SourceRange _destinationRange;
 
   /// Link title.
-  String? get title => _title;
   String? _title;
 
-  LinkParser(this._blockParser) : _source = _blockParser.current.content {
+  LinkParser(this._blockParser) {
+    _sourceLines.add(_blockParser.current.source);
+    _lineStarts.add(0);
+    _length = _sourceLines.first.text.length;
     _blockParser.advance();
   }
 
   int get pos => _pos;
 
-  int get length => _source.length;
+  int get length => _length;
 
-  bool get isDone => _pos == _source.length;
+  bool get isDone => _pos == _length;
 
-  int charAt([int? position]) => _source.codeUnitAt(position ?? _pos);
+  int charAt([int? position]) {
+    position ??= _pos;
+    final line = _lineIndex(position);
+    final offset = position - _lineStarts[line];
+    return offset == _sourceLines[line].text.length
+        ? $lf
+        : _sourceLines[line].text.codeUnitAt(offset);
+  }
+
+  int _lineIndex(int position) {
+    var low = 0;
+    var high = _lineStarts.length - 1;
+    while (low < high) {
+      final mid = (low + high + 1) ~/ 2;
+      if (_lineStarts[mid] <= position) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return low;
+  }
 
   void advance() {
     _pos++;
   }
 
-  String substring(int start, [int? end]) => _source.substring(start, end);
+  String substring(int start, [int? end]) {
+    end ??= _length;
+    final buffer = StringBuffer();
+    for (var i = _lineIndex(start); i < _sourceLines.length; i++) {
+      final lineStart = _lineStarts[i];
+      if (lineStart >= end) break;
+      final text = _sourceLines[i].text;
+      final left = start > lineStart ? start - lineStart : 0;
+      final right = end < lineStart + text.length
+          ? end - lineStart
+          : text.length;
+      buffer.write(text.substring(left, right));
+      if (lineStart + text.length < end && i + 1 < _sourceLines.length) {
+        buffer.write('\n');
+      }
+    }
+    return buffer.toString();
+  }
+
+  void _saveDestination(int start) {
+    _destination = substring(start, pos);
+    final line = _lineIndex(start);
+    _destinationRange = _sourceLines[line].range(
+      start - _lineStarts[line],
+      pos - _lineStarts[line],
+    );
+  }
+
+  LinkReference _definition() => LinkReference(
+    normalizeLinkLabel(_label),
+    _destination,
+    _title,
+    _destinationRange,
+  );
 
   /// Walks the parser forward through horizontal whitespace on the current
   /// line.
@@ -77,7 +132,10 @@ class LinkParser {
     if (BlockSyntax.isAtBlockEnd(_blockParser)) {
       return false;
     }
-    _source = '$_source\n${_blockParser.current.content}';
+    _lineStarts.add(_length + 1);
+    final source = _blockParser.current.source;
+    _sourceLines.add(source);
+    _length += 1 + source.text.length;
     _blockParser.advance();
     _linesConsumed++;
     return true;
@@ -108,18 +166,18 @@ class LinkParser {
     return false;
   }
 
-  /// Parses [_source] to a link reference definition.
-  void parseDefinition() {
+  /// Returns a complete definition, or null when the syntax is invalid.
+  LinkReference? parseDefinition() {
     if (!parseLabel() || isDone || charAt() != $colon) {
       _retreatTo(0);
-      return;
+      return null;
     }
 
     // Advance to the next character after the colon.
     advance();
     if (!_parseDestination()) {
       _retreatTo(0);
-      return;
+      return null;
     }
 
     final precedingWhitespaces = moveThroughWhitespace();
@@ -132,16 +190,15 @@ class LinkParser {
       // (see https://spec.commonmark.org/0.30/#example-209).
       if (precedingWhitespaces == 0 || !_parseTitle()) {
         _retreatTo(0);
-        return;
+        return null;
       }
       moveThroughWhitespace();
       if (!isDone) {
         _title = null;
         _retreatTo(0);
-        return;
+        return null;
       }
-      _valid = true;
-      return;
+      return _definition();
     }
 
     // We reached the end of the destination's line, so `[label]: destination`
@@ -166,7 +223,7 @@ class LinkParser {
       }
     }
 
-    _valid = true;
+    return _definition();
   }
 
   /// Parses the link label, returns `true` if there is a valid link label.
@@ -270,7 +327,7 @@ class LinkParser {
       }
     }
 
-    _destination = substring(start, pos);
+    _saveDestination(start);
 
     // Advance past the closing `>`.
     advance();
@@ -316,7 +373,7 @@ class LinkParser {
       return false;
     }
 
-    _destination = substring(start, pos);
+    _saveDestination(start);
     return true;
   }
 

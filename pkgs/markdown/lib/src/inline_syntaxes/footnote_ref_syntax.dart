@@ -32,7 +32,7 @@ class FootnoteRefSyntax {
     secondary ??= false;
     final parser = context.parser;
     final key = _footnoteLabel(text);
-    final refs = parser.document.footnoteReferences;
+    final refs = parser.context.footnoteReferences;
     // `label` is what footnoteReferences stored, it is case sensitive.
     final label = refs.keys.firstWhere(
       (k) => k.toLowerCase() == key,
@@ -50,7 +50,7 @@ class FootnoteRefSyntax {
       result.add(Text('!'));
     }
     refs[label] = ++count;
-    final labels = parser.document.footnoteLabels;
+    final labels = parser.context.footnoteLabels;
     var pos = labels.indexOf(key);
     if (pos < 0) {
       pos = labels.length;

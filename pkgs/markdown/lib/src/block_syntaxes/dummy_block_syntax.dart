@@ -4,6 +4,7 @@
 
 import '../ast.dart';
 import '../block_parser.dart';
+import '../line.dart';
 import '../patterns.dart';
 import 'block_syntax.dart';
 
@@ -24,13 +25,13 @@ class DummyBlockSyntax extends BlockSyntax {
 
   @override
   Node parse(BlockParser parser) {
-    final childLines = <String>[];
+    final childLines = <Line>[];
 
     while (!BlockSyntax.isAtBlockEnd(parser)) {
-      childLines.add(parser.current.content);
+      childLines.add(parser.current);
       parser.advance();
     }
 
-    return UnparsedContent(childLines.join('\n'));
+    return UnparsedContent(Line.join(childLines));
   }
 }

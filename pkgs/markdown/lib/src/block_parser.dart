@@ -19,8 +19,8 @@ import 'block_syntaxes/ordered_list_syntax.dart';
 import 'block_syntaxes/paragraph_syntax.dart';
 import 'block_syntaxes/setext_header_syntax.dart';
 import 'block_syntaxes/unordered_list_syntax.dart';
-import 'document.dart';
 import 'line.dart';
+import 'parse_context.dart';
 
 /// Maintains the internal state needed to parse a series of lines into blocks
 /// of Markdown suitable for further inline parsing.
@@ -28,7 +28,7 @@ class BlockParser {
   final List<Line> lines;
 
   /// The Markdown document this parser is parsing.
-  final Document document;
+  final ParseContext context;
 
   /// The enabled block syntaxes.
   ///
@@ -55,6 +55,10 @@ class BlockParser {
   /// elements.
   bool encounteredBlankLine = false;
 
+  /// Whether the child lines just collected end in a lazy continuation.
+  /// Quote syntaxes use this when parsing their child blocks.
+  bool lastLineWasLazyContinuation = false;
+
   /// The collection of built-in block parsers.
   // TODO(kevmoo): this should be static const and private!
   // The fact that it's mutable is a BUG!
@@ -76,10 +80,13 @@ class BlockParser {
     const ParagraphSyntax(),
   ];
 
-  BlockParser(this.lines, this.document) {
-    blockSyntaxes.addAll(document.blockSyntaxes);
+  BlockParser(this.lines, this.context) {
+    for (final line in lines) {
+      context.source.checkSource(line.source);
+    }
+    blockSyntaxes.addAll(context.document.blockSyntaxes);
 
-    if (document.withDefaultBlockSyntaxes) {
+    if (context.document.withDefaultBlockSyntaxes) {
       blockSyntaxes.addAll(standardBlockSyntaxes);
     } else {
       blockSyntaxes.add(const DummyBlockSyntax());

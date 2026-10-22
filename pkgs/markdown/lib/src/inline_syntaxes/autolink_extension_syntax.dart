@@ -101,6 +101,10 @@ class AutolinkExtensionSyntax extends InlineSyntax {
     }
 
     final anchor = Element.text('a', text)
+      ..destinationRange = parser.sourceText.range(
+        match.start,
+        match.start + consumeLength,
+      )
       ..attributes['href'] = Uri.encodeFull(destination);
 
     parser

@@ -22,7 +22,11 @@ class EmailAutolinkSyntax extends InlineSyntax {
   bool onMatch(InlineParser parser, Match match) {
     final url = match[1]!;
     final text = parser.encodeHtml ? escapeHtml(url) : url;
-    final anchor = Element.text('a', text);
+    final anchor = Element.text('a', text)
+      ..destinationRange = parser.sourceText.range(
+        match.start + 1,
+        match.end - 1,
+      );
     anchor.attributes['href'] = Uri.encodeFull('mailto:$url');
     parser.addNode(anchor);
 

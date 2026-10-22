@@ -20,19 +20,20 @@ class FootnoteDefSyntax extends BlockSyntax {
 
   @override
   Node? parse(BlockParser parser) {
-    final current = parser.current.content;
+    final currentLine = parser.current;
+    final current = currentLine.content;
     final match = pattern.firstMatch(current)!;
     final label = match[2]!;
-    final refs = parser.document.footnoteReferences;
+    final refs = parser.context.footnoteReferences;
     refs[label] = 0;
 
     final id = Uri.encodeComponent(label);
     parser.advance();
     final lines = [
-      Line(current.substring(match[0]!.length)),
+      Line.withSource(currentLine.source.slice(match[0]!.length), currentLine),
       ...parseChildLines(parser),
     ];
-    final children = BlockParser(lines, parser.document).parseLines();
+    final children = BlockParser(lines, parser.context).parseLines();
     return Element('li', children)
       ..attributes['id'] = 'fn-$id'
       ..footnoteLabel = label;
@@ -40,7 +41,7 @@ class FootnoteDefSyntax extends BlockSyntax {
 
   @override
   List<Line> parseChildLines(BlockParser parser) {
-    final children = <String>[];
+    final children = <Line>[];
     // As one empty line should not split footnote definition, use this flag.
     var shouldBeBlock = false;
     late final syntaxList = parser.blockSyntaxes.where(
@@ -51,22 +52,24 @@ class FootnoteDefSyntax extends BlockSyntax {
     while (!parser.isDone) {
       final line = parser.current.content;
       if (line.trim().isEmpty) {
-        children.add(line);
+        children.add(parser.current);
         parser.advance();
         shouldBeBlock = true;
         continue;
       } else if (line.startsWith('    ')) {
-        children.add(line.substring(4));
+        children.add(
+          Line.withSource(parser.current.source.slice(4), parser.current),
+        );
         parser.advance();
         shouldBeBlock = false;
       } else if (shouldBeBlock || _isBlock(syntaxList, line)) {
         break;
       } else {
-        children.add(line);
+        children.add(parser.current);
         parser.advance();
       }
     }
-    return children.map(Line.new).toList(growable: false);
+    return children;
   }
 
   /// Patterns that would be used to decide if one line is a block.

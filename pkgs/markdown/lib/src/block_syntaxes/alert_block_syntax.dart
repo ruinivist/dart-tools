@@ -24,18 +24,13 @@ class AlertBlockSyntax extends BlockSyntax {
     return alertPattern.hasMatch(parser.current.content);
   }
 
-  /// Whether this alert ends with a lazy continuation line.
-  ///
-  /// The definition of lazy continuation lines:
-  /// https://spec.commonmark.org/0.30/#lazy-continuation-line
-  static bool _lazyContinuation = false;
   static final _contentLineRegExp = RegExp(r'>?\s?(.*)*');
 
   @override
   List<Line> parseChildLines(BlockParser parser) {
     // Grab all of the lines that form the alert, stripping off the ">".
     final childLines = <Line>[];
-    _lazyContinuation = false;
+    parser.lastLineWasLazyContinuation = false;
 
     while (!parser.isDone) {
       final lineContent = parser.current.content.trimLeft();
@@ -44,13 +39,22 @@ class AlertBlockSyntax extends BlockSyntax {
           ? null
           : _contentLineRegExp.firstMatch(strippedContent);
       if (match != null) {
-        childLines.add(Line(strippedContent));
+        childLines.add(
+          Line.withSource(
+            parser.current.source.slice(
+              parser.current.content.length - strippedContent.length,
+            ),
+            parser.current,
+          ),
+        );
         parser.advance();
-        _lazyContinuation = false;
+        parser.lastLineWasLazyContinuation = false;
         continue;
       }
 
-      final lastLine = childLines.isEmpty ? Line('') : childLines.last;
+      final lastLine = childLines.isEmpty
+          ? Line(parser.current.source.slice(0, 0))
+          : childLines.last;
 
       // A paragraph continuation is OK. This is content that cannot be parsed
       // as any other syntax except Paragraph, and it doesn't match the bar in
@@ -66,7 +70,7 @@ class AlertBlockSyntax extends BlockSyntax {
           (otherMatched is CodeBlockSyntax &&
               !indentPattern.hasMatch(lastLine.content))) {
         childLines.add(parser.current);
-        _lazyContinuation = true;
+        parser.lastLineWasLazyContinuation = true;
         parser.advance();
       } else {
         break;
@@ -86,11 +90,11 @@ class AlertBlockSyntax extends BlockSyntax {
     parser.advance();
     final childLines = parseChildLines(parser);
     // Recursively parse the contents of the alert.
-    final children = BlockParser(childLines, parser.document).parseLines(
+    final children = BlockParser(childLines, parser.context).parseLines(
       // The setext heading underline cannot be a lazy continuation line in a
       // block quote.
       // https://spec.commonmark.org/0.30/#example-93
-      disabledSetextHeading: _lazyContinuation,
+      disabledSetextHeading: parser.lastLineWasLazyContinuation,
       parentSyntax: this,
     );
 

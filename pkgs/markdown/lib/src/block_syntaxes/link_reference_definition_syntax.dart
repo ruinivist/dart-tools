@@ -4,10 +4,8 @@
 
 import '../ast.dart';
 import '../block_parser.dart';
-import '../document.dart';
 import '../link_parser.dart';
 import '../patterns.dart';
-import '../util.dart';
 import 'block_syntax.dart';
 
 class LinkReferenceDefinitionSyntax extends BlockSyntax {
@@ -21,18 +19,13 @@ class LinkReferenceDefinitionSyntax extends BlockSyntax {
 
   @override
   Node? parse(BlockParser parser) {
-    final linkParser = LinkParser(parser)..parseDefinition();
-    if (!linkParser.valid) {
-      return null;
+    final definition = LinkParser(parser).parseDefinition();
+    if (definition != null) {
+      parser.context.linkReferences.putIfAbsent(
+        definition.label,
+        () => definition,
+      );
     }
-
-    final labelString = normalizeLinkLabel(linkParser.label!);
-
-    parser.document.linkReferences.putIfAbsent(
-      labelString,
-      () =>
-          LinkReference(labelString, linkParser.destination!, linkParser.title),
-    );
 
     return null;
   }

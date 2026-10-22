@@ -9,6 +9,7 @@ import 'assets/html_entities.dart';
 import 'charcode.dart';
 import 'line.dart';
 import 'patterns.dart';
+import 'source_text.dart';
 
 /// One or more whitespace, for compressing.
 final _oneOrMoreWhitespacePattern = RegExp('[ \n\r\t]+');
@@ -206,7 +207,7 @@ extension StringExtensions on String {
   bool get isBlank => trim().isEmpty;
 
   /// Converts this string to a list of [Line].
-  List<Line> toLines() => LineSplitter.split(this).map(Line.new).toList();
+  List<Line> toLines() => SourceText(this).splitLines().map(Line.new).toList();
 
   /// Returns the last character.
   String last([int n = 1]) => substring(length - n);

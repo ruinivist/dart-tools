@@ -36,8 +36,12 @@ class CodeBlockSyntax extends BlockSyntax {
       }
 
       childLines.add(
-        Line(
-          parser.current.content.dedent().text,
+        Line.withSource(
+          parser.current.source.slice(
+            parser.current.content.length -
+                parser.current.content.dedent().text.length,
+          ),
+          parser.current,
           tabRemaining: parser.current.tabRemaining,
         ),
       );
@@ -53,12 +57,12 @@ class CodeBlockSyntax extends BlockSyntax {
     final childLines = parseChildLines(parser);
 
     // The Markdown tests expect a trailing newline.
-    childLines.add(Line(''));
+    childLines.add(Line(parser.context.source.slice(0, 0)));
 
     var content = childLines
         .map((e) => e.content.prependSpace(e.tabRemaining ?? 0))
         .join('\n');
-    if (parser.document.encodeHtml) {
+    if (parser.context.document.encodeHtml) {
       content = escapeHtml(content, escapeApos: false);
     }
 

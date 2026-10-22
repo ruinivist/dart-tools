@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'source_range.dart';
+import 'source_text.dart';
+
 /// A resolver for reference links that do not resolve to a declaration.
 ///
 /// Does not have access to the link text. Use a [LinkBuilder] instead.
@@ -59,6 +62,9 @@ class Element implements Node {
   final String tag;
   final List<Node>? children;
   final Map<String, String> attributes;
+
+  /// The raw destination in the input, or null for generated destinations.
+  SourceRange? destinationRange;
   String? generatedId;
   String? footnoteLabel;
 
@@ -126,9 +132,11 @@ class Text implements Node {
 /// definitions.
 class UnparsedContent implements Node {
   @override
-  final String textContent;
+  String get textContent => source.text;
 
-  UnparsedContent(this.textContent);
+  final SourceText source;
+
+  UnparsedContent(this.source);
 
   @override
   void accept(NodeVisitor visitor) {}

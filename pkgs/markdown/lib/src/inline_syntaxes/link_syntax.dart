@@ -6,6 +6,7 @@ import '../ast.dart';
 import '../charcode.dart';
 import '../document.dart';
 import '../inline_parser.dart';
+import '../source_range.dart';
 import '../util.dart';
 import 'delimiter_syntax.dart';
 import 'footnote_ref_syntax.dart';
@@ -80,6 +81,7 @@ class LinkSyntax extends DelimiterSyntax {
           createNode(
             inlineLink.destination,
             inlineLink.title,
+            inlineLink.destinationRange,
             getChildren: getChildren,
           ),
         ];
@@ -143,6 +145,7 @@ class LinkSyntax extends DelimiterSyntax {
         createNode(
           linkReference.destination,
           linkReference.title,
+          linkReference.destinationRange,
           getChildren: getChildren,
         ),
       ];
@@ -166,11 +169,12 @@ class LinkSyntax extends DelimiterSyntax {
   /// Create the node represented by a Markdown link.
   Node createNode(
     String destination,
-    String? title, {
+    String? title,
+    SourceRange destinationRange, {
     required List<Node> Function() getChildren,
   }) {
     final children = getChildren();
-    final element = Element('a', children);
+    final element = Element('a', children)..destinationRange = destinationRange;
     element.attributes['href'] = normalizeLinkDestination(
       escapePunctuation(destination),
     );
@@ -196,7 +200,7 @@ class LinkSyntax extends DelimiterSyntax {
     final link = _resolveReferenceLink(
       label,
       title,
-      parser.document.linkReferences,
+      parser.context.linkReferences,
       getChildren: getChildren,
     );
     if (link != null) {
@@ -286,6 +290,7 @@ class LinkSyntax extends DelimiterSyntax {
     parser.advanceBy(1);
     if (parser.isDone) return null;
 
+    final destinationStart = parser.pos;
     final buffer = StringBuffer();
     while (true) {
       final char = parser.charAt(parser.pos);
@@ -313,6 +318,10 @@ class LinkSyntax extends DelimiterSyntax {
       if (parser.isDone) return null;
     }
     final destination = buffer.toString();
+    final destinationRange = parser.sourceText.range(
+      destinationStart,
+      parser.pos,
+    );
 
     parser.advanceBy(1);
     if (parser.isDone) return null;
@@ -325,9 +334,9 @@ class LinkSyntax extends DelimiterSyntax {
         // followed by mystery characters; no longer a link.
         return null;
       }
-      return InlineLink(destination, title: title);
+      return InlineLink(destination, destinationRange, title: title);
     } else if (char == $rparen) {
-      return InlineLink(destination);
+      return InlineLink(destination, destinationRange);
     } else {
       // We parsed something like `[foo](<url>X`. Not a link.
       return null;
@@ -351,6 +360,7 @@ class LinkSyntax extends DelimiterSyntax {
     // We need to count the open parens. We start with 1 for the paren that
     // opened the destination.
     var parenCount = 1;
+    final destinationStart = parser.pos;
     final buffer = StringBuffer();
 
     while (true) {
@@ -374,6 +384,10 @@ class LinkSyntax extends DelimiterSyntax {
         case $cr:
         case $ff:
           final destination = buffer.toString();
+          final destinationRange = parser.sourceText.range(
+            destinationStart,
+            parser.pos,
+          );
           final title = _parseTitle(parser);
           if (title == null &&
               (parser.isDone || parser.charAt(parser.pos) != $rparen)) {
@@ -386,7 +400,7 @@ class LinkSyntax extends DelimiterSyntax {
           // parentheses).
           parenCount--;
           if (parenCount == 0) {
-            return InlineLink(destination, title: title);
+            return InlineLink(destination, destinationRange, title: title);
           }
           break;
 
@@ -399,7 +413,11 @@ class LinkSyntax extends DelimiterSyntax {
           parenCount--;
           if (parenCount == 0) {
             final destination = buffer.toString();
-            return InlineLink(destination);
+            final destinationRange = parser.sourceText.range(
+              destinationStart,
+              parser.pos,
+            );
+            return InlineLink(destination, destinationRange);
           }
           buffer.writeCharCode(char);
           break;
@@ -485,5 +503,7 @@ class InlineLink {
   final String destination;
   final String? title;
 
-  InlineLink(this.destination, {this.title});
+  final SourceRange destinationRange;
+
+  InlineLink(this.destination, this.destinationRange, {this.title});
 }

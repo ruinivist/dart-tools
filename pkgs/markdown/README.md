@@ -1,3 +1,5 @@
+This fork tracks Markdown destinations so tools can update links and images without reformatting documents. See [Fork Makrdown.md](<Fork Makrdown.md>).
+
 [![Build Status](https://github.com/dart-lang/tools/actions/workflows/markdown.yaml/badge.svg)](https://github.com/dart-lang/tools/actions/workflows/markdown.yaml)
 [![pub package](https://img.shields.io/pub/v/markdown.svg)](https://pub.dev/packages/markdown)
 [![package publisher](https://img.shields.io/pub/publisher/markdown.svg)](https://pub.dev/packages/markdown/publisher)

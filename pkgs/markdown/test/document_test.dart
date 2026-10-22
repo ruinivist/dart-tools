@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:markdown/markdown.dart';
-import 'package:markdown/src/util.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -16,6 +15,20 @@ void main() {
         result[0],
         const TypeMatcher<Text>().having((e) => e.text, 'text', equals('< &')),
       );
+    });
+
+    test('reentrant quote parsing keeps lazy continuation state local', () {
+      late Document document;
+      document = Document(
+        blockSyntaxes: [
+          _ReentrantBlockSyntax(() => document.parse('> nested')),
+        ],
+      );
+      final nodes = document.parse('> first\ncontinued\n===\n---');
+      final quote = nodes.first as Element;
+      final paragraph = quote.children!.single as Element;
+      expect(paragraph.tag, 'p');
+      expect(paragraph.textContent, 'first\ncontinued\n===');
     });
 
     group('with encodeHtml enabled', () {
@@ -33,8 +46,8 @@ void main() {
       });
 
       test('encodes HTML in a fenced code block', () {
-        final lines = '```\n<p>Hello <em>Markdown</em></p>\n```\n'.toLines();
-        final result = document.parseLineList(lines);
+        const lines = '```\n<p>Hello <em>Markdown</em></p>\n```\n';
+        final result = document.parse(lines);
         final codeBlock = result.single as Element;
         expect(
           codeBlock.textContent,
@@ -43,8 +56,8 @@ void main() {
       });
 
       test('encodes HTML in an indented code block', () {
-        final lines = '    <p>Hello <em>Markdown</em></p>\n'.toLines();
-        final result = document.parseLineList(lines);
+        const lines = '    <p>Hello <em>Markdown</em></p>\n';
+        final result = document.parse(lines);
         final codeBlock = result.single as Element;
         expect(
           codeBlock.textContent,
@@ -56,7 +69,11 @@ void main() {
         // Example to get a <p> tag rendered before a text node.
         const contents = 'Sample\n\n<pre>\n A\n B\n</pre>';
         final document = Document();
-        final nodes = BlockParser(contents.toLines(), document).parseLines();
+        final context = ParseContext(document, contents);
+        final nodes = BlockParser(
+          context.source.splitLines().map(Line.new).toList(),
+          context,
+        ).parseLines();
         final result = HtmlRenderer().render(nodes);
         expect(result, '<p>\n</p>\n<pre>\n A\n B\n</pre>');
       });
@@ -95,8 +112,8 @@ void main() {
       });
 
       test('leaves HTML alone, in a fenced code block', () {
-        final lines = '```\n<p>Hello <em>Markdown</em></p>\n```\n'.toLines();
-        final result = document.parseLineList(lines);
+        const lines = '```\n<p>Hello <em>Markdown</em></p>\n```\n';
+        final result = document.parse(lines);
         final codeBlock = result.single as Element;
         expect(
           codeBlock.textContent,
@@ -105,8 +122,8 @@ void main() {
       });
 
       test('leaves HTML alone, in an indented code block', () {
-        final lines = '    <p>Hello <em>Markdown</em></p>\n'.toLines();
-        final result = document.parseLineList(lines);
+        const lines = '    <p>Hello <em>Markdown</em></p>\n';
+        final result = document.parse(lines);
         final codeBlock = result.single as Element;
         expect(
           codeBlock.textContent,
@@ -126,4 +143,22 @@ void main() {
       });
     });
   });
+}
+
+class _ReentrantBlockSyntax extends BlockSyntax {
+  final void Function() callback;
+
+  _ReentrantBlockSyntax(this.callback);
+
+  @override
+  RegExp get pattern => RegExp('never matches');
+
+  @override
+  bool canParse(BlockParser parser) {
+    if (parser.current.content == '---') callback();
+    return false;
+  }
+
+  @override
+  Node? parse(BlockParser parser) => null;
 }

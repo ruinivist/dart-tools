@@ -6,6 +6,7 @@ import '../ast.dart';
 import '../block_parser.dart';
 import '../charcode.dart';
 import '../patterns.dart';
+import '../source_text.dart';
 import 'block_syntax.dart';
 
 /// Parses tables.
@@ -116,55 +117,40 @@ class TableSyntax extends BlockSyntax {
     String cellType,
   ) {
     final line = parser.current;
-    final cells = <String>[];
+    final cells = <SourceText>[];
     var index = _walkPastOpeningPipe(line.content);
-    final cellBuffer = StringBuffer();
+    var runStart = index;
+    var cellBuffer = SourceTextBuilder(line.source.slice(index, index));
 
     while (true) {
       if (index >= line.content.length) {
-        // This row ended without a trailing pipe, which is fine.
-        cells.add(cellBuffer.toString().trimRight());
-        cellBuffer.clear();
+        cellBuffer.add(line.source.slice(runStart, index));
+        cells.add(cellBuffer.build().trimRight());
         break;
       }
       final ch = line.content.codeUnitAt(index);
       if (ch == $backslash) {
-        if (index == line.content.length - 1) {
-          // A table row ending in a backslash is not well-specified, but it
-          // looks like GitHub just allows the character as part of the text of
-          // the last cell.
-          cellBuffer.writeCharCode(ch);
-          cells.add(cellBuffer.toString().trimRight());
-          cellBuffer.clear();
-          break;
-        }
-        final escaped = line.content.codeUnitAt(index + 1);
-        if (escaped == $pipe) {
-          // GitHub Flavored Markdown has a strange bit here; the pipe is to be
-          // escaped before any other inline processing. One consequence, for
-          // example, is that "| `\|` |" should be parsed as a cell with a code
-          // element with text "|", rather than "\|". Most parsers are not
-          // compliant with this corner, but this is what is specified, and what
-          // GitHub does in practice.
-          cellBuffer.writeCharCode(escaped);
+        if (index + 1 < line.content.length) {
+          if (line.content.codeUnitAt(index + 1) == $pipe) {
+            // Table escaping runs before inline parsing, including code spans.
+            cellBuffer.add(line.source.slice(runStart, index));
+            cellBuffer.add(
+              line.source.slice(index, index + 2).replaceWith('|'),
+            );
+            runStart = index + 2;
+          }
+          index += 2;
         } else {
-          // The [InlineParser] will handle the escaping.
-          cellBuffer.writeCharCode(ch);
-          cellBuffer.writeCharCode(escaped);
+          index++;
         }
-        index += 2;
       } else if (ch == $pipe) {
-        cells.add(cellBuffer.toString().trimRight());
-        cellBuffer.clear();
-        // Walk forward past any whitespace which leads the next cell.
-        index++;
-        index = _walkPastWhitespace(line.content, index);
-        if (index >= line.content.length) {
-          // This row ended with a trailing pipe.
-          break;
-        }
+        cellBuffer.add(line.source.slice(runStart, index));
+        cells.add(cellBuffer.build().trimRight());
+        index = _walkPastWhitespace(line.content, index + 1);
+        if (index >= line.content.length) break;
+        runStart = index;
+        cellBuffer = SourceTextBuilder(line.source.slice(index, index));
       } else {
-        cellBuffer.writeCharCode(ch);
         index++;
       }
     }
