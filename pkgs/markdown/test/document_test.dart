@@ -100,6 +100,22 @@ void main() {
     group('with encodeHtml disabled', () {
       final document = Document(encodeHtml: false);
 
+      test(
+        'keeps image descriptions plain without decoding entities twice',
+        () {
+          const description = '''Alice's "logo" &quot;''';
+          for (final source in [
+            '''![Alice's "logo" &amp;quot;](image.png)''',
+            '''![Alice's "logo" &amp;quot;][image]\n\n[image]: image.png''',
+            '''![![Alice's "logo" &amp;quot;](inner.png)](image.png)''',
+          ]) {
+            final paragraph = document.parse(source).single as Element;
+            final image = paragraph.children!.single as Element;
+            expect(image.attributes['alt'], description, reason: source);
+          }
+        },
+      );
+
       test('leaves HTML alone, in a code snippet', () {
         final result = document.parseInline(
           '```<p>Hello <em>Markdown</em></p>```',

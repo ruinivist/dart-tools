@@ -26,7 +26,7 @@ class ImageSyntax extends LinkSyntax {
     element.attributes['src'] = normalizeLinkDestination(
       escapePunctuation(destination),
     );
-    final alt = children
+    element.attributes['alt'] = children
         .map((node) {
           // See https://spec.commonmark.org/0.30/#image-description.
           // An image description may contain links. Fetch text from the alt
@@ -38,7 +38,6 @@ class ImageSyntax extends LinkSyntax {
         })
         .nonNulls
         .join();
-    element.attributes['alt'] = escapeAttributeCharactersValue(alt);
     if (title != null && title.isNotEmpty) {
       element.attributes['title'] = normalizeLinkTitle(title);
     }

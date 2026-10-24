@@ -1,5 +1,8 @@
 ## 7.4.1-wip
 
+* Escape image descriptions when rendering HTML instead of when creating image
+  nodes. With `encodeHtml: false`, image `alt` attributes retain plain text for
+  non-HTML renderers without changing escaped HTML output.
 * Always preserve raw destination locations for Markdown links, images,
   references, and autolinks through `Element.destinationRange` and the exported
   immutable `SourceRange` type.

@@ -9,6 +9,7 @@ import 'block_syntaxes/block_syntax.dart';
 import 'document.dart';
 import 'extension_set.dart';
 import 'inline_syntaxes/inline_syntax.dart';
+import 'util.dart';
 
 /// Converts the given string of Markdown to HTML.
 String markdownToHtml(
@@ -147,7 +148,10 @@ class HtmlRenderer implements NodeVisitor {
     buffer.write('<${element.tag}');
 
     for (final entry in element.attributes.entries) {
-      buffer.write(' ${entry.key}="${entry.value}"');
+      final value = element.tag == 'img' && entry.key == 'alt'
+          ? escapeAttributeCharactersValue(entry.value)
+          : entry.value;
+      buffer.write(' ${entry.key}="$value"');
     }
 
     final generatedId = element.generatedId;

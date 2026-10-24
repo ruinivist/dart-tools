@@ -6,6 +6,34 @@ import 'package:markdown/markdown.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final encodeHtml in [true, false]) {
+    test(
+      'escapes image descriptions at HTML output, encodeHtml: $encodeHtml',
+      () {
+        const source = '![<b x=" onerror=alert(1) y=">](bad)';
+        final nodes = Document(
+          encodeHtml: encodeHtml,
+          inlineSyntaxes: [InlineHtmlSyntax()],
+        ).parse(source);
+        expect(
+          renderToHtml(nodes),
+          '<p><img src="bad" alt="&lt;b x=&quot; onerror=alert(1) y=&quot;&gt;" /></p>',
+        );
+      },
+    );
+  }
+
+  test('preserves encoded ampersands in image descriptions', () {
+    expect(
+      markdownToHtml('![a & " b](bad)'),
+      '<p><img src="bad" alt="a &amp; &quot; b" /></p>\n',
+    );
+    expect(
+      markdownToHtml('![&amp;amp;](bad)'),
+      '<p><img src="bad" alt="&amp;amp;" /></p>\n',
+    );
+  });
+
   group('markdownToHtml', () {
     const text = '# Hello **Markdown<em>!</em>**\n***';
 
